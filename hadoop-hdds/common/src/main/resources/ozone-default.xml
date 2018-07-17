@@ -541,13 +541,13 @@
     <description>The port number of the Ozone SCM client service.</description>
   </property>
   <property>
-    <name>ozone.scm.container.deletion-choosing.policy</name>
+    <name>ozone.scm.keyvalue.container.deletion-choosing.policy</name>
     <value>
       org.apache.hadoop.ozone.container.common.impl.TopNOrderedContainerDeletionChoosingPolicy
     </value>
     <tag>OZONE, MANAGEMENT</tag>
     <description>
-      The policy used for choosing desire containers for block deletion.
+      The policy used for choosing desired keyvalue containers for block deletion.
       Datanode selects some containers to process block deletion
       in a certain interval defined by ozone.block.deleting.service.interval.
       The number of containers to process in each interval is defined
@@ -1059,6 +1059,15 @@
       Instrumentation reporting long critical sections will suppress
       consecutive warnings within this interval.
     </description>
+  </property>
+
+  <property>
+    <name>hdds.command.status.report.interval</name>
+    <value>30s</value>
+    <tag>OZONE, DATANODE, MANAGEMENT</tag>
+    <description>Time interval of the datanode to send status of commands
+      executed since last report. Unit could be defined with
+      postfix (ns,ms,s,m,h,d)</description>
   </property>
 
 </configuration>

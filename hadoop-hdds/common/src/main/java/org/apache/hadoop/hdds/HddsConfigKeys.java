@@ -17,7 +17,15 @@
  */
 package org.apache.hadoop.hdds;
 
+import org.apache.hadoop.hdds.scm.ScmConfigKeys;
+/**
+ * Config class for HDDS.
+ */
 public final class HddsConfigKeys {
   private HddsConfigKeys() {
   }
+  public static final String HDDS_COMMAND_STATUS_REPORT_INTERVAL =
+      "hdds.command.status.report.interval";
+  public static final String HDDS_COMMAND_STATUS_REPORT_INTERVAL_DEFAULT =
+      ScmConfigKeys.OZONE_SCM_HEARBEAT_INTERVAL_DEFAULT;
 }
