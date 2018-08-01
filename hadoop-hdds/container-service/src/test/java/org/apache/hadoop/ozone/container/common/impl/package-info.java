@@ -1,4 +1,4 @@
-/*
+/**
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -17,7 +17,6 @@
  *
  */
 /**
- * SCM Testing and Mocking Utils.
+ * Datanode container related test-cases.
  */
-package org.apache.hadoop.ozone.container.replication;
-// Test classes for Replication functionality.
+package org.apache.hadoop.ozone.container.common.impl;

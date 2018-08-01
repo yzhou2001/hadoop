@@ -31,13 +31,20 @@ import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.hdds.HddsUtils;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos.NodeState;
+import org.apache.hadoop.hdds.scm.ScmConfigKeys;
 import org.apache.hadoop.hdds.scm.block.BlockManager;
 import org.apache.hadoop.hdds.scm.block.BlockManagerImpl;
+import org.apache.hadoop.hdds.scm.command.CommandStatusReportHandler;
 import org.apache.hadoop.hdds.scm.container.CloseContainerEventHandler;
 import org.apache.hadoop.hdds.scm.container.ContainerMapping;
 import org.apache.hadoop.hdds.scm.container.ContainerReportHandler;
 import org.apache.hadoop.hdds.scm.container.Mapping;
+import org.apache.hadoop.hdds.scm.container.replication.ReplicationManager;
 import org.apache.hadoop.hdds.scm.container.common.helpers.ContainerInfo;
+import org.apache.hadoop.hdds.scm.container.placement.algorithms
+    .ContainerPlacementPolicy;
+import org.apache.hadoop.hdds.scm.container.placement.algorithms
+    .SCMContainerPlacementCapacity;
 import org.apache.hadoop.hdds.scm.container.placement.metrics.ContainerStat;
 import org.apache.hadoop.hdds.scm.container.placement.metrics.SCMMetrics;
 import org.apache.hadoop.hdds.scm.events.SCMEvents;
@@ -60,9 +67,13 @@ import org.apache.hadoop.metrics2.util.MBeans;
 import org.apache.hadoop.ozone.OzoneConfigKeys;
 import org.apache.hadoop.ozone.common.Storage.StorageState;
 import org.apache.hadoop.ozone.common.StorageInfo;
+import org.apache.hadoop.ozone.lease.LeaseManager;
 import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.hadoop.util.GenericOptionsParser;
 import org.apache.hadoop.util.StringUtils;
+
+import static org.apache.hadoop.hdds.scm.ScmConfigKeys
+    .HDDS_SCM_WATCHER_TIMEOUT_DEFAULT;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -152,6 +163,8 @@ public final class StorageContainerManager extends ServiceRuntimeInfoImpl
    * Key = DatanodeUuid, value = ContainerStat.
    */
   private Cache<String, ContainerStat> containerReportCache;
+  private final ReplicationManager replicationManager;
+  private final LeaseManager<Long> commandWatcherLeaseManager;
 
   /**
    * Creates a new StorageContainerManager. Configuration will be updated
@@ -179,7 +192,7 @@ public final class StorageContainerManager extends ServiceRuntimeInfoImpl
     scmNodeManager = new SCMNodeManager(
         conf, scmStorage.getClusterID(), this, eventQueue);
     scmContainerManager = new ContainerMapping(
-        conf, getScmNodeManager(), cacheSize);
+        conf, getScmNodeManager(), cacheSize, eventQueue);
     scmBlockManager = new BlockManagerImpl(
         conf, getScmNodeManager(), scmContainerManager, eventQueue);
 
@@ -191,6 +204,8 @@ public final class StorageContainerManager extends ServiceRuntimeInfoImpl
         new NodeReportHandler(scmNodeManager);
     ContainerReportHandler containerReportHandler =
         new ContainerReportHandler(scmContainerManager, node2ContainerMap);
+    CommandStatusReportHandler cmdStatusReportHandler =
+        new CommandStatusReportHandler();
     NewNodeHandler newNodeHandler = new NewNodeHandler(node2ContainerMap);
     StaleNodeHandler staleNodeHandler = new StaleNodeHandler(node2ContainerMap);
     DeadNodeHandler deadNodeHandler = new DeadNodeHandler(node2ContainerMap);
@@ -202,6 +217,22 @@ public final class StorageContainerManager extends ServiceRuntimeInfoImpl
     eventQueue.addHandler(SCMEvents.NEW_NODE, newNodeHandler);
     eventQueue.addHandler(SCMEvents.STALE_NODE, staleNodeHandler);
     eventQueue.addHandler(SCMEvents.DEAD_NODE, deadNodeHandler);
+    eventQueue.addHandler(SCMEvents.CMD_STATUS_REPORT, cmdStatusReportHandler);
+
+    long watcherTimeout =
+        conf.getTimeDuration(ScmConfigKeys.HDDS_SCM_WATCHER_TIMEOUT,
+            HDDS_SCM_WATCHER_TIMEOUT_DEFAULT, TimeUnit.MILLISECONDS);
+
+    commandWatcherLeaseManager = new LeaseManager<>("CommandWatcher",
+        watcherTimeout);
+
+    //TODO: support configurable containerPlacement policy
+    ContainerPlacementPolicy containerPlacementPolicy =
+        new SCMContainerPlacementCapacity(scmNodeManager, conf);
+
+    replicationManager = new ReplicationManager(containerPlacementPolicy,
+        scmContainerManager.getStateManager(), eventQueue,
+        commandWatcherLeaseManager);
 
     scmAdminUsernames = conf.getTrimmedStringCollection(OzoneConfigKeys
         .OZONE_ADMINISTRATORS);
@@ -548,7 +579,7 @@ public final class StorageContainerManager extends ServiceRuntimeInfoImpl
 
     httpServer.start();
     scmBlockManager.start();
-
+    replicationManager.start();
     setStartTime();
   }
 
@@ -556,6 +587,20 @@ public final class StorageContainerManager extends ServiceRuntimeInfoImpl
    * Stop service.
    */
   public void stop() {
+
+    try {
+      LOG.info("Stopping Replication Manager Service.");
+      replicationManager.stop();
+    } catch (Exception ex) {
+      LOG.error("Replication manager service stop failed.", ex);
+    }
+
+    try {
+      LOG.info("Stopping Lease Manager of the command watchers");
+      commandWatcherLeaseManager.shutdown();
+    } catch (Exception ex) {
+      LOG.error("Lease Manager of the command watchers stop failed");
+    }
 
     try {
       LOG.info("Stopping datanode service RPC server");

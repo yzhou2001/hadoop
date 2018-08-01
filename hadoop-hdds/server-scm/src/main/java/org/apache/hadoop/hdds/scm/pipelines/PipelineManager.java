@@ -38,14 +38,14 @@ public abstract class PipelineManager {
   private static final Logger LOG =
       LoggerFactory.getLogger(PipelineManager.class);
   private final List<Pipeline> activePipelines;
-  private final Map<String, Pipeline> activePipelineMap;
+  private final Map<String, Pipeline> pipelineMap;
   private final AtomicInteger pipelineIndex;
   private final Node2PipelineMap node2PipelineMap;
 
   public PipelineManager(Node2PipelineMap map) {
     activePipelines = new LinkedList<>();
     pipelineIndex = new AtomicInteger(0);
-    activePipelineMap = new WeakHashMap<>();
+    pipelineMap = new WeakHashMap<>();
     node2PipelineMap = map;
   }
 
@@ -59,41 +59,16 @@ public abstract class PipelineManager {
    * @return a Pipeline.
    */
   public synchronized final Pipeline getPipeline(
-      ReplicationFactor replicationFactor, ReplicationType replicationType)
-      throws IOException {
-    /**
-     * In the Ozone world, we have a very simple policy.
-     *
-     * 1. Try to create a pipeline if there are enough free nodes.
-     *
-     * 2. This allows all nodes to part of a pipeline quickly.
-     *
-     * 3. if there are not enough free nodes, return pipeline in a
-     * round-robin fashion.
-     *
-     * TODO: Might have to come up with a better algorithm than this.
-     * Create a new placement policy that returns pipelines in round robin
-     * fashion.
-     */
-    Pipeline pipeline = allocatePipeline(replicationFactor);
+      ReplicationFactor replicationFactor, ReplicationType replicationType) {
+    Pipeline pipeline = findOpenPipeline(replicationType, replicationFactor);
     if (pipeline != null) {
-      LOG.debug("created new pipeline:{} for container with " +
+      LOG.debug("re-used pipeline:{} for container with " +
               "replicationType:{} replicationFactor:{}",
           pipeline.getPipelineName(), replicationType, replicationFactor);
-      activePipelines.add(pipeline);
-      activePipelineMap.put(pipeline.getPipelineName(), pipeline);
-      node2PipelineMap.addPipeline(pipeline);
-    } else {
-      pipeline = findOpenPipeline(replicationType, replicationFactor);
-      if (pipeline != null) {
-        LOG.debug("re-used pipeline:{} for container with " +
-                "replicationType:{} replicationFactor:{}",
-            pipeline.getPipelineName(), replicationType, replicationFactor);
-      }
     }
     if (pipeline == null) {
       LOG.error("Get pipeline call failed. We are not able to find" +
-              "free nodes or operational pipeline.");
+              " operational pipeline.");
       return null;
     } else {
       return pipeline;
@@ -109,9 +84,9 @@ public abstract class PipelineManager {
   public synchronized final Pipeline getPipeline(String pipelineName) {
     Pipeline pipeline = null;
 
-    // 1. Check if pipeline channel already exists
-    if (activePipelineMap.containsKey(pipelineName)) {
-      pipeline = activePipelineMap.get(pipelineName);
+    // 1. Check if pipeline already exists
+    if (pipelineMap.containsKey(pipelineName)) {
+      pipeline = pipelineMap.get(pipelineName);
       LOG.debug("Returning pipeline for pipelineName:{}", pipelineName);
       return pipeline;
     } else {
@@ -132,12 +107,13 @@ public abstract class PipelineManager {
   }
 
   public abstract Pipeline allocatePipeline(
-      ReplicationFactor replicationFactor) throws IOException;
+      ReplicationFactor replicationFactor);
 
-  public void removePipeline(Pipeline pipeline) {
-    activePipelines.remove(pipeline);
-    activePipelineMap.remove(pipeline.getPipelineName());
-  }
+  /**
+   * Initialize the pipeline
+   * TODO: move the initialization to Ozone Client later
+   */
+  public abstract void initializePipeline(Pipeline pipeline) throws IOException;
 
   /**
    * Find a Pipeline that is operational.
@@ -179,17 +155,40 @@ public abstract class PipelineManager {
   }
 
   /**
-   * Creates a pipeline from a specified set of Nodes.
-   * @param pipelineID - Name of the pipeline
-   * @param datanodes - The list of datanodes that make this pipeline.
+   * Creates a pipeline with a specified replication factor and type.
+   * @param replicationFactor - Replication Factor.
+   * @param replicationType - Replication Type.
    */
-  public abstract void createPipeline(String pipelineID,
-      List<DatanodeDetails> datanodes) throws IOException;
+  public Pipeline createPipeline(ReplicationFactor replicationFactor,
+      ReplicationType replicationType) throws IOException {
+    Pipeline pipeline = allocatePipeline(replicationFactor);
+    if (pipeline != null) {
+      LOG.debug("created new pipeline:{} for container with "
+              + "replicationType:{} replicationFactor:{}",
+          pipeline.getPipelineName(), replicationType, replicationFactor);
+      activePipelines.add(pipeline);
+      pipelineMap.put(pipeline.getPipelineName(), pipeline);
+      node2PipelineMap.addPipeline(pipeline);
+    }
+    return pipeline;
+  }
 
   /**
-   * Close the  pipeline with the given clusterId.
+   * Remove the pipeline from active allocation
+   * @param pipeline pipeline to be finalized
    */
-  public abstract void closePipeline(String pipelineID) throws IOException;
+  public synchronized void finalizePipeline(Pipeline pipeline) {
+    activePipelines.remove(pipeline);
+  }
+
+  /**
+   *
+   * @param pipeline
+   */
+  public void closePipeline(Pipeline pipeline) {
+    pipelineMap.remove(pipeline.getPipelineName());
+    node2PipelineMap.removePipeline(pipeline);
+  }
 
   /**
    * list members in the pipeline .

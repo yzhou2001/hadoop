@@ -20,6 +20,9 @@ package org.apache.hadoop.ozone.genesis;
 import org.apache.hadoop.hdds.scm.container.common.helpers.Pipeline;
 import org.apache.hadoop.ozone.container.common.impl.ContainerSet;
 import org.apache.hadoop.ozone.container.common.impl.HddsDispatcher;
+import org.apache.hadoop.ozone.container.common.statemachine
+    .DatanodeStateMachine.DatanodeStates;
+import org.apache.hadoop.ozone.container.common.statemachine.StateContext;
 import org.apache.hadoop.ozone.container.common.volume.VolumeSet;
 import org.apache.ratis.shaded.com.google.protobuf.ByteString;
 import org.apache.commons.codec.digest.DigestUtils;
@@ -50,8 +53,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos.LifeCycleState;
 import org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos
     .ContainerCommandRequestProto;
-import org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos
-    .CreateContainerRequestProto;
 import org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos
     .ReadChunkRequestProto;
 import org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos
@@ -106,7 +107,8 @@ public class BenchMarkDatanodeDispatcher {
     ContainerSet containerSet = new ContainerSet();
     VolumeSet volumeSet = new VolumeSet(datanodeUuid, conf);
 
-    dispatcher = new HddsDispatcher(conf, containerSet, volumeSet);
+    dispatcher = new HddsDispatcher(conf, containerSet, volumeSet,
+        new StateContext(conf, DatanodeStates.RUNNING, null));
     dispatcher.init();
 
     containerCount = new AtomicInteger();
@@ -156,15 +158,14 @@ public class BenchMarkDatanodeDispatcher {
     FileUtils.deleteDirectory(new File(baseDir));
   }
 
-  private ContainerCommandRequestProto getCreateContainerCommand(long containerID) {
-    CreateContainerRequestProto.Builder createRequest =
-        CreateContainerRequestProto.newBuilder();
-    createRequest.setContainerID(containerID).build();
-
+  private ContainerCommandRequestProto getCreateContainerCommand(
+      long containerID) {
     ContainerCommandRequestProto.Builder request =
         ContainerCommandRequestProto.newBuilder();
     request.setCmdType(ContainerProtos.Type.CreateContainer);
-    request.setCreateContainer(createRequest);
+    request.setContainerID(containerID);
+    request.setCreateContainer(
+        ContainerProtos.CreateContainerRequestProto.getDefaultInstance());
     request.setDatanodeUuid(datanodeUuid);
     request.setTraceID(containerID + "-trace");
     return request.build();
@@ -181,6 +182,7 @@ public class BenchMarkDatanodeDispatcher {
     ContainerCommandRequestProto.Builder request = ContainerCommandRequestProto
         .newBuilder();
     request.setCmdType(ContainerProtos.Type.WriteChunk)
+        .setContainerID(blockID.getContainerID())
         .setTraceID(getBlockTraceID(blockID))
         .setDatanodeUuid(datanodeUuid)
         .setWriteChunk(writeChunkRequest);
@@ -193,9 +195,11 @@ public class BenchMarkDatanodeDispatcher {
         .newBuilder()
         .setBlockID(blockID.getDatanodeBlockIDProtobuf())
         .setChunkData(getChunkInfo(blockID, chunkName));
+
     ContainerCommandRequestProto.Builder request = ContainerCommandRequestProto
         .newBuilder();
     request.setCmdType(ContainerProtos.Type.ReadChunk)
+        .setContainerID(blockID.getContainerID())
         .setTraceID(getBlockTraceID(blockID))
         .setDatanodeUuid(datanodeUuid)
         .setReadChunk(readChunkRequest);
@@ -219,9 +223,11 @@ public class BenchMarkDatanodeDispatcher {
     PutKeyRequestProto.Builder putKeyRequest = PutKeyRequestProto
         .newBuilder()
         .setKeyData(getKeyData(blockID, chunkKey));
+
     ContainerCommandRequestProto.Builder request = ContainerCommandRequestProto
         .newBuilder();
     request.setCmdType(ContainerProtos.Type.PutKey)
+        .setContainerID(blockID.getContainerID())
         .setTraceID(getBlockTraceID(blockID))
         .setDatanodeUuid(datanodeUuid)
         .setPutKey(putKeyRequest);
@@ -234,6 +240,7 @@ public class BenchMarkDatanodeDispatcher {
     ContainerCommandRequestProto.Builder request = ContainerCommandRequestProto
         .newBuilder()
         .setCmdType(ContainerProtos.Type.GetKey)
+        .setContainerID(blockID.getContainerID())
         .setTraceID(getBlockTraceID(blockID))
         .setDatanodeUuid(datanodeUuid)
         .setGetKey(readKeyRequest);
