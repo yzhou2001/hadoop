@@ -2096,6 +2096,11 @@ public class RouterRpcServer extends AbstractService
     return null;
   }
 
+  @Override
+  public void msync() throws IOException {
+    throw new UnsupportedOperationException("msync not supported");
+  }
+
   @Override // NamenodeProtocol
   public BlocksWithLocations getBlocks(DatanodeInfo datanode, long size,
       long minBlockSize) throws IOException {
