@@ -29,6 +29,8 @@ import org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos
 import org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos
     .ContainerCommandResponseProto;
 import org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos
+    .ContainerLifeCycleState;
+import org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos
     .ContainerType;
 import org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos
     .GetSmallFileRequestProto;
@@ -76,6 +78,8 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantLock;
 
+import static org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos
+    .Result.CLOSED_CONTAINER_RETRY;
 import static org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos
     .Result.CONTAINER_INTERNAL_ERROR;
 import static org.apache.hadoop.hdds.protocol.datanode.proto.ContainerProtos
@@ -378,8 +382,18 @@ public class KeyValueHandler extends Handler {
       return ContainerUtils.malformedRequest(request);
     }
 
+    long containerID = kvContainer.getContainerData().getContainerID();
+    ContainerLifeCycleState containerState = kvContainer.getContainerState();
+
     try {
-      checkContainerOpen(kvContainer);
+      if (containerState == ContainerLifeCycleState.CLOSED) {
+        LOG.debug("Container {} is already closed.", containerID);
+        return ContainerUtils.getSuccessResponse(request);
+      } else if (containerState == ContainerLifeCycleState.INVALID) {
+        LOG.debug("Invalid container data. ContainerID: {}", containerID);
+        throw new StorageContainerException("Invalid container data. " +
+            "ContainerID: " + containerID, INVALID_CONTAINER_STATE);
+      }
 
       KeyValueContainerData kvData = kvContainer.getContainerData();
 
@@ -407,6 +421,7 @@ public class KeyValueHandler extends Handler {
   ContainerCommandResponseProto handlePutKey(
       ContainerCommandRequestProto request, KeyValueContainer kvContainer) {
 
+    long blockLength;
     if (!request.hasPutKey()) {
       LOG.debug("Malformed Put Key request. trace ID: {}",
           request.getTraceID());
@@ -419,7 +434,7 @@ public class KeyValueHandler extends Handler {
       KeyData keyData = KeyData.getFromProtoBuf(
           request.getPutKey().getKeyData());
       long numBytes = keyData.getProtoBufMessage().toByteArray().length;
-      commitKey(keyData, kvContainer);
+      blockLength = commitKey(keyData, kvContainer);
       metrics.incContainerBytesStats(Type.PutKey, numBytes);
     } catch (StorageContainerException ex) {
       return ContainerUtils.logAndReturnError(LOG, ex, request);
@@ -429,7 +444,7 @@ public class KeyValueHandler extends Handler {
           request);
     }
 
-    return KeyUtils.getKeyResponseSuccess(request);
+    return KeyUtils.putKeyResponseSuccess(request, blockLength);
   }
 
   private void commitPendingKeys(KeyValueContainer kvContainer)
@@ -442,12 +457,13 @@ public class KeyValueHandler extends Handler {
     }
   }
 
-  private void commitKey(KeyData keyData, KeyValueContainer kvContainer)
+  private long commitKey(KeyData keyData, KeyValueContainer kvContainer)
       throws IOException {
     Preconditions.checkNotNull(keyData);
-    keyManager.putKey(kvContainer, keyData);
+    long length = keyManager.putKey(kvContainer, keyData);
     //update the open key Map in containerManager
     this.openContainerBlockMap.removeFromKeyMap(keyData.getBlockID());
+    return length;
   }
   /**
    * Handle Get Key operation. Calls KeyManager to process the request.
@@ -648,8 +664,12 @@ public class KeyValueHandler extends Handler {
           request.getWriteChunk().getStage() == Stage.COMBINED) {
         metrics.incContainerBytesStats(Type.WriteChunk, request.getWriteChunk()
             .getChunkData().getLen());
-        // the openContainerBlockMap should be updated only while writing data
-        // not during COMMIT_STAGE of handling write chunk request.
+      }
+
+      if (request.getWriteChunk().getStage() == Stage.COMMIT_DATA
+          || request.getWriteChunk().getStage() == Stage.COMBINED) {
+        // the openContainerBlockMap should be updated only during
+        // COMMIT_STAGE of handling write chunk request.
         openContainerBlockMap.addChunk(blockID, chunkInfoProto);
       }
     } catch (StorageContainerException ex) {
@@ -773,10 +793,9 @@ public class KeyValueHandler extends Handler {
   private void checkContainerOpen(KeyValueContainer kvContainer)
       throws StorageContainerException {
 
-    ContainerProtos.ContainerLifeCycleState containerState =
-        kvContainer.getContainerState();
+    ContainerLifeCycleState containerState = kvContainer.getContainerState();
 
-    if (containerState == ContainerProtos.ContainerLifeCycleState.OPEN) {
+    if (containerState == ContainerLifeCycleState.OPEN) {
       return;
     } else {
       String msg = "Requested operation not allowed as ContainerState is " +
