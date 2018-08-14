@@ -52,7 +52,7 @@ public class TestDatanodeDeath {
   static final int blockSize = 8192;
   static final int numBlocks = 2;
   static final int fileSize = numBlocks * blockSize + 1;
-  static final int numDatanodes = 15;
+  static final int numDatanodes = 5;
   static final short replication = 3;
 
   final int numberOfFiles = 3;

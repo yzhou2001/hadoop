@@ -61,7 +61,7 @@ public class TestFileAppend2 {
 
   private byte[] fileContents = null;
 
-  final int numDatanodes = 6;
+  final int numDatanodes = 5;
   final int numberOfFiles = 50;
   final int numThreads = 10;
   final int numAppendsPerThread = 20;

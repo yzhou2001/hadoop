@@ -56,7 +56,7 @@ public class TestBlockPlacementPolicyRackFaultTolerant {
     Configuration conf = new HdfsConfiguration();
     final ArrayList<String> rackList = new ArrayList<String>();
     final ArrayList<String> hostList = new ArrayList<String>();
-    for (int i = 0; i < 10; i++) {
+    for (int i = 0; i < 3; i++) {
       for (int j = 0; j < 2; j++) {
         rackList.add("/rack" + i);
         hostList.add("/host" + i + j);
@@ -96,8 +96,8 @@ public class TestBlockPlacementPolicyRackFaultTolerant {
   private void doTestChooseTargetNormalCase() throws Exception {
     String clientMachine = "client.foo.com";
     short[][] testSuite = {
-        {3, 2}, {3, 7}, {3, 8}, {3, 10}, {9, 1}, {10, 1}, {10, 6}, {11, 6},
-        {11, 9}
+        {3, 2}//, {3, 7}, {3, 8}, {3, 10}, {9, 1}, {10, 1}, {10, 6}, {11, 6},
+        //{11, 9}
     };
     // Test 5 files
     int fileCount = 0;
@@ -139,12 +139,12 @@ public class TestBlockPlacementPolicyRackFaultTolerant {
     // Create the file with client machine
     HdfsFileStatus fileStatus = namesystem.startFile(src, perm,
         clientMachine, clientMachine, EnumSet.of(CreateFlag.CREATE), true,
-        (short) 20, DEFAULT_BLOCK_SIZE, null, false);
+        (short) 5, DEFAULT_BLOCK_SIZE, null, false);
 
     //test chooseTarget for new file
     LocatedBlock locatedBlock = nameNodeRpc.addBlock(src, clientMachine,
         null, null, fileStatus.getFileId(), null, null);
-    doTestLocatedBlock(20, locatedBlock);
+    doTestLocatedBlock(5, locatedBlock);
 
     DatanodeInfo[] locs = locatedBlock.getLocations();
     String[] storageIDs = locatedBlock.getStorageIDs();
@@ -156,7 +156,7 @@ public class TestBlockPlacementPolicyRackFaultTolerant {
         String[] partStorageIDs = new String[i];
         System.arraycopy(locs, 0, partLocs, 0, i);
         System.arraycopy(storageIDs, 0, partStorageIDs, 0, i);
-        for (int j = 1; j < 20 - i; j++) {
+        for (int j = 1; j < 5 - i; j++) {
           LocatedBlock additionalLocatedBlock =
               nameNodeRpc.getAdditionalDatanode(src, fileStatus.getFileId(),
                   locatedBlock.getBlock(), partLocs,

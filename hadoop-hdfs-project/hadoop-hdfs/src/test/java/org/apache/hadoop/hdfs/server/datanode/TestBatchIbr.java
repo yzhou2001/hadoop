@@ -59,7 +59,7 @@ public class TestBatchIbr {
   private static final int BLOCK_SIZE = 1024;
   private static final int MAX_BLOCK_NUM = 8;
   private static final int NUM_FILES = 1000;
-  private static final int NUM_THREADS = 128;
+  private static final int NUM_THREADS = 64;
 
   private static final ThreadLocalBuffer IO_BUF = new ThreadLocalBuffer();
   private static final ThreadLocalBuffer VERIFY_BUF = new ThreadLocalBuffer();
