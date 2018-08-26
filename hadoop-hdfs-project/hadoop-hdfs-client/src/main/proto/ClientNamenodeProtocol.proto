@@ -481,7 +481,6 @@ message RollingUpgradeInfoProto {
 message RollingUpgradeResponseProto {
   optional RollingUpgradeInfoProto rollingUpgradeInfo= 1;
 }
-
 message ListCorruptFileBlocksRequestProto {
   required string path = 1;
   optional string cookie = 2;
@@ -837,6 +836,14 @@ message MsyncRequestProto {
 message MsyncResponseProto {
 }
 
+message SatisfyStoragePolicyRequestProto {
+  required string src = 1;
+}
+
+message SatisfyStoragePolicyResponseProto {
+
+}
+
 service ClientNamenodeProtocol {
   rpc getBlockLocations(GetBlockLocationsRequestProto)
       returns(GetBlockLocationsResponseProto);
@@ -1025,4 +1032,6 @@ service ClientNamenodeProtocol {
       returns(ListOpenFilesResponseProto);
   rpc msync(MsyncRequestProto)
       returns(MsyncResponseProto);
+  rpc satisfyStoragePolicy(SatisfyStoragePolicyRequestProto)
+      returns(SatisfyStoragePolicyResponseProto);
 }
