@@ -1162,7 +1162,7 @@ public class NameNode extends ReconfigurableBase implements
         return true; // aborted
       }
 
-      fsImage.format(fsn, clusterId);
+      fsImage.format(fsn, clusterId, force);
     } catch (IOException ioe) {
       LOG.warn("Encountered exception during format: ", ioe);
       fsImage.close();
@@ -1265,7 +1265,7 @@ public class NameNode extends ReconfigurableBase implements
       // actually want to save a checkpoint - just prime the dirs with
       // the existing namespace info
       newSharedStorage.format(nsInfo);
-      sharedEditsImage.getEditLog().formatNonFileJournals(nsInfo);
+      sharedEditsImage.getEditLog().formatNonFileJournals(nsInfo, force);
 
       // Need to make sure the edit log segments are in good shape to initialize
       // the shared edits dir.

@@ -82,7 +82,7 @@ public class TestJournal {
     conf.setBoolean(DFSConfigKeys.DFS_HA_TAILEDITS_INPROGRESS_KEY, true);
     journal = new Journal(conf, TEST_LOG_DIR, JID, StartupOption.REGULAR,
       mockErrorReporter);
-    journal.format(FAKE_NSINFO);
+    journal.format(FAKE_NSINFO, false);
   }
   
   @After
@@ -216,7 +216,7 @@ public class TestJournal {
     // Clear the storage directory before reformatting it
     journal.getStorage().getJournalManager()
         .getStorageDirectory().clearDirectory();
-    journal.format(FAKE_NSINFO_2);
+    journal.format(FAKE_NSINFO_2, false);
     
     assertEquals(0, journal.getLastPromisedEpoch());
     assertEquals(0, journal.getLastWriterEpoch());
@@ -434,7 +434,7 @@ public class TestJournal {
     try {
       // Format again here and to format the non-empty directories in
       // journal node.
-      journal.format(FAKE_NSINFO);
+      journal.format(FAKE_NSINFO, false);
       fail("Did not fail to format non-empty directories in journal node.");
     } catch (IOException ioe) {
       GenericTestUtils.assertExceptionContains(
@@ -481,4 +481,15 @@ public class TestJournal {
         result.getEditLog().toByteArray());
   }
 
+  @Test
+  public void testFormatNonEmptyStorageDirectoriesWhenforceOptionIsTrue()
+      throws Exception {
+    try {
+      // Format again here and to format the non-empty directories in
+      // journal node.
+      journal.format(FAKE_NSINFO, true);
+    } catch (IOException ioe) {
+      fail("Format should be success with force option.");
+    }
+  }
 }

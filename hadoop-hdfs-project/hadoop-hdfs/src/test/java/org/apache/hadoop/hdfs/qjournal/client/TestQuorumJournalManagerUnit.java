@@ -20,6 +20,7 @@ package org.apache.hadoop.hdfs.qjournal.client;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 import static org.mockito.Matchers.anyLong;
+import static org.mockito.Matchers.anyBoolean;
 import static org.mockito.Matchers.eq;
 
 import java.io.ByteArrayOutputStream;
@@ -98,7 +99,8 @@ public class TestQuorumJournalManagerUnit {
           NewEpochResponseProto.newBuilder().build()
           ).when(logger).newEpoch(Mockito.anyLong());
       
-      futureReturns(null).when(logger).format(Mockito.<NamespaceInfo>any());
+      futureReturns(null).when(logger).format(Mockito.<NamespaceInfo>any(),
+          anyBoolean());
     }
     
     qjm.recoverUnfinalizedSegments();

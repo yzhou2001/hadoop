@@ -2491,8 +2491,8 @@ public class NameNodeRpcServer implements NamenodeProtocols {
     }
     boolean success = false;
     try {
-      namesystem.enableErasureCodingPolicy(ecPolicyName, cacheEntry != null);
-      success = true;
+      success = namesystem.enableErasureCodingPolicy(ecPolicyName,
+          cacheEntry != null);
     } finally {
       RetryCache.setState(cacheEntry, success);
     }
@@ -2509,8 +2509,8 @@ public class NameNodeRpcServer implements NamenodeProtocols {
     }
     boolean success = false;
     try {
-      namesystem.disableErasureCodingPolicy(ecPolicyName, cacheEntry != null);
-      success = true;
+      success = namesystem.disableErasureCodingPolicy(ecPolicyName,
+          cacheEntry != null);
     } finally {
       RetryCache.setState(cacheEntry, success);
     }

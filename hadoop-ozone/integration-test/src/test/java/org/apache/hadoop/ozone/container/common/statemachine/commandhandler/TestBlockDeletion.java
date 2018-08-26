@@ -60,7 +60,8 @@ import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 
-import static org.apache.hadoop.hdds.HddsConfigKeys.HDDS_HEARTBEAT_INTERVAL;
+import static org.apache.hadoop.hdds
+    .HddsConfigKeys.HDDS_CONTAINER_REPORT_INTERVAL;
 import static org.apache.hadoop.ozone
     .OzoneConfigKeys.OZONE_BLOCK_DELETING_SERVICE_INTERVAL;
 
@@ -89,10 +90,13 @@ public class TestBlockDeletion {
     conf.setQuietMode(false);
     conf.setTimeDuration(OZONE_BLOCK_DELETING_SERVICE_INTERVAL, 100,
         TimeUnit.MILLISECONDS);
-    conf.setTimeDuration(HDDS_HEARTBEAT_INTERVAL, 200,
+    conf.setTimeDuration(HDDS_CONTAINER_REPORT_INTERVAL, 200,
         TimeUnit.MILLISECONDS);
 
-    cluster = MiniOzoneCluster.newBuilder(conf).setNumDatanodes(1).build();
+    cluster = MiniOzoneCluster.newBuilder(conf)
+        .setNumDatanodes(1)
+        .setHbInterval(200)
+        .build();
     cluster.waitForClusterToBeReady();
     store = OzoneClientFactory.getRpcClient(conf).getObjectStore();
     dnContainerSet = cluster.getHddsDatanodes().get(0)
@@ -135,7 +139,9 @@ public class TestBlockDeletion {
     Assert.assertTrue(verifyBlocksCreated(omKeyLocationInfoGroupList));
     // No containers with deleted blocks
     Assert.assertTrue(containerIdsWithDeletedBlocks.isEmpty());
-    // Delete transactionIds for the containers should be 0
+    // Delete transactionIds for the containers should be 0.
+    // NOTE: this test assumes that all the container is KetValueContainer. If
+    // other container types is going to be added, this test should be checked.
     matchContainerTransactionIds();
     om.deleteKey(keyArgs);
     Thread.sleep(5000);
@@ -211,8 +217,9 @@ public class TestBlockDeletion {
         Assert.assertEquals(
             scm.getContainerInfo(containerId).getDeleteTransactionId(), 0);
       }
-      Assert.assertEquals(dnContainerSet.getContainer(containerId)
-              .getContainerData().getDeleteTransactionId(),
+      Assert.assertEquals(((KeyValueContainerData)dnContainerSet
+              .getContainer(containerId).getContainerData())
+              .getDeleteTransactionId(),
           scm.getContainerInfo(containerId).getDeleteTransactionId());
     }
   }
