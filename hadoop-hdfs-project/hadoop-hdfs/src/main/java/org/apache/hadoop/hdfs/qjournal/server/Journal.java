@@ -35,8 +35,8 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.commons.lang3.Range;
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileUtil;
 import org.apache.hadoop.hdfs.DFSConfigKeys;
@@ -84,7 +84,7 @@ import com.google.protobuf.TextFormat;
  * the same JVM.
  */
 public class Journal implements Closeable {
-  static final Log LOG = LogFactory.getLog(Journal.class);
+  static final Logger LOG = LoggerFactory.getLogger(Journal.class);
 
 
   // Current writing state
@@ -1104,7 +1104,7 @@ public class Journal implements Closeable {
   public synchronized void doPreUpgrade() throws IOException {
     // Do not hold file lock on committedTxnId, because the containing
     // directory will be renamed.  It will be reopened lazily on next access.
-    IOUtils.cleanup(LOG, committedTxnId);
+    IOUtils.cleanupWithLogger(LOG, committedTxnId);
     storage.getJournalManager().doPreUpgrade();
   }
 
@@ -1146,7 +1146,7 @@ public class Journal implements Closeable {
       lastWriterEpoch.set(prevLastWriterEpoch.get());
       committedTxnId.set(prevCommittedTxnId.get());
     } finally {
-      IOUtils.cleanup(LOG, prevCommittedTxnId);
+      IOUtils.cleanupWithLogger(LOG, prevCommittedTxnId);
     }
   }
 
@@ -1168,7 +1168,7 @@ public class Journal implements Closeable {
   public synchronized void doRollback() throws IOException {
     // Do not hold file lock on committedTxnId, because the containing
     // directory will be renamed.  It will be reopened lazily on next access.
-    IOUtils.cleanup(LOG, committedTxnId);
+    IOUtils.cleanupWithLogger(LOG, committedTxnId);
     storage.getJournalManager().doRollback();
   }
 

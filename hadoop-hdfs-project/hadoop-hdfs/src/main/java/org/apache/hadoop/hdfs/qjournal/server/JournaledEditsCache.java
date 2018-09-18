@@ -334,7 +334,7 @@ class JournaledEditsCache {
       logMsg.append("; previous version was ").append(layoutVersion)
           .append("; old entries will be cleared.");
     }
-    Journal.LOG.info(logMsg);
+    Journal.LOG.info(logMsg.toString());
     initialize(newStartTxn);
     ByteArrayOutputStream baos = new ByteArrayOutputStream();
     EditLogFileOutputStream.writeHeader(newLayoutVersion,
