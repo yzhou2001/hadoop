@@ -37,6 +37,7 @@ import org.apache.hadoop.hdds.scm.block.BlockManagerImpl;
 import org.apache.hadoop.hdds.scm.block.PendingDeleteHandler;
 import org.apache.hadoop.hdds.scm.command.CommandStatusReportHandler;
 import org.apache.hadoop.hdds.scm.container.CloseContainerEventHandler;
+import org.apache.hadoop.hdds.scm.container.CloseContainerWatcher;
 import org.apache.hadoop.hdds.scm.container.ContainerActionsHandler;
 import org.apache.hadoop.hdds.scm.container.ContainerMapping;
 import org.apache.hadoop.hdds.scm.container.ContainerReportHandler;
@@ -218,7 +219,8 @@ public final class StorageContainerManager extends ServiceRuntimeInfoImpl
 
     NewNodeHandler newNodeHandler = new NewNodeHandler(node2ContainerMap);
     StaleNodeHandler staleNodeHandler = new StaleNodeHandler(node2ContainerMap);
-    DeadNodeHandler deadNodeHandler = new DeadNodeHandler(node2ContainerMap);
+    DeadNodeHandler deadNodeHandler = new DeadNodeHandler(node2ContainerMap,
+        getScmContainerManager().getStateManager());
     ContainerActionsHandler actionsHandler = new ContainerActionsHandler();
     PendingDeleteHandler pendingDeleteHandler =
         new PendingDeleteHandler(scmBlockManager.getSCMBlockDeletingService());
@@ -255,6 +257,13 @@ public final class StorageContainerManager extends ServiceRuntimeInfoImpl
     replicationManager = new ReplicationManager(containerPlacementPolicy,
         scmContainerManager.getStateManager(), eventQueue,
         commandWatcherLeaseManager);
+
+    // setup CloseContainer watcher
+    CloseContainerWatcher closeContainerWatcher =
+        new CloseContainerWatcher(SCMEvents.CLOSE_CONTAINER_RETRYABLE_REQ,
+            SCMEvents.CLOSE_CONTAINER_STATUS, commandWatcherLeaseManager,
+            scmContainerManager);
+    closeContainerWatcher.start(eventQueue);
 
     scmAdminUsernames = conf.getTrimmedStringCollection(OzoneConfigKeys
         .OZONE_ADMINISTRATORS);

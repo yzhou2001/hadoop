@@ -244,6 +244,22 @@
     </description>
   </property>
   <property>
+    <name>ozone.client.max.retries</name>
+    <value>50</value>
+    <tag>OZONE, CLIENT</tag>
+    <description>Maximum number of retries by Ozone Client on encountering
+      exception while fetching committed block length.
+    </description>
+  </property>
+  <property>
+    <name>ozone.client.retry.interval</name>
+    <value>200ms</value>
+    <tag>OZONE, CLIENT</tag>
+    <description>Interval between retries by Ozone Client on encountering
+      exception while fetching committed block length.
+    </description>
+  </property>
+  <property>
     <name>ozone.client.protocol</name>
     <value>org.apache.hadoop.ozone.client.rpc.RpcClient</value>
     <tag>OZONE, CLIENT, MANAGEMENT</tag>
@@ -1100,12 +1116,20 @@
   </property>
 
   <property>
-    <name>ozone.db.profile</name>
-    <value>DBProfile.SSD</value>
+    <name>hdds.db.profile</name>
+    <value>SSD</value>
     <tag>OZONE, OM, PERFORMANCE, REQUIRED</tag>
     <description>This property allows user to pick a configuration
     that tunes the RocksDB settings for the hardware it is running
     on. Right now, we have SSD and DISK as profile options.</description>
   </property>
 
+  <property>
+    <name>hdds.datanode.replication.work.dir</name>
+    <tag>DATANODE</tag>
+    <description>Temporary which is used during the container replication
+      betweeen datanodes. Should have enough space to store multiple container
+      (in compressed format), but doesn't require fast io access such as SSD.
+    </description>
+  </property>
 </configuration>

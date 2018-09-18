@@ -15,17 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.hadoop.hdds.scm.cli;
-
+package org.apache.hadoop.ozone.container.replication;
 /**
- * The possible result code of SCM CLI.
- */
-public final class ResultCode {
-  public static final int SUCCESS = 1;
-
-  public static final int UNRECOGNIZED_CMD = 2;
-
-  public static final int EXECUTION_ERROR = 3;
-
-  private ResultCode() {}
-}
+ Classes to replicate container data between datanodes.
+**/

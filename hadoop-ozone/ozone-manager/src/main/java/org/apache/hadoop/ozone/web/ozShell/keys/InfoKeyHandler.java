@@ -25,11 +25,8 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 
 import org.apache.commons.cli.CommandLine;
-import org.apache.hadoop.ozone.client.OzoneClientException;
-import org.apache.hadoop.ozone.client.OzoneClientUtils;
-import org.apache.hadoop.ozone.client.OzoneBucket;
-import org.apache.hadoop.ozone.client.OzoneKey;
-import org.apache.hadoop.ozone.client.OzoneVolume;
+import org.apache.hadoop.ozone.OzoneConsts;
+import org.apache.hadoop.ozone.client.*;
 import org.apache.hadoop.ozone.client.rest.OzoneException;
 import org.apache.hadoop.ozone.web.ozShell.Handler;
 import org.apache.hadoop.ozone.web.ozShell.Shell;
@@ -68,8 +65,12 @@ public class InfoKeyHandler extends Handler {
 
     volumeName = path.getName(0).toString();
     bucketName = path.getName(1).toString();
-    keyName = path.getName(2).toString();
 
+    String searchString = volumeName + OzoneConsts.OZONE_URI_DELIMITER +
+        bucketName + OzoneConsts.OZONE_URI_DELIMITER;
+
+    keyName = ozoneURIString.substring(ozoneURIString.indexOf(searchString) +
+                searchString.length());
 
     if (cmd.hasOption(Shell.VERBOSE)) {
       System.out.printf("Volume Name : %s%n", volumeName);
@@ -79,9 +80,9 @@ public class InfoKeyHandler extends Handler {
 
     OzoneVolume vol = client.getObjectStore().getVolume(volumeName);
     OzoneBucket bucket = vol.getBucket(bucketName);
-    OzoneKey key = bucket.getKey(keyName);
+    OzoneKeyDetails key = bucket.getKey(keyName);
 
     System.out.printf("%s%n", JsonUtils.toJsonStringWithDefaultPrettyPrinter(
-        JsonUtils.toJsonString(OzoneClientUtils.asKeyInfo(key))));
+        JsonUtils.toJsonString(OzoneClientUtils.asKeyInfoDetails(key))));
   }
 }

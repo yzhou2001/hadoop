@@ -194,6 +194,14 @@ public final class OzoneConfigKeys {
   public static final int
       OZONE_BLOCK_DELETING_CONTAINER_LIMIT_PER_INTERVAL_DEFAULT = 10;
 
+  public static final String OZONE_CLIENT_MAX_RETRIES =
+      "ozone.client.max.retries";
+  public static final int OZONE_CLIENT_MAX_RETRIES_DEFAULT = 50;
+
+  public static final String OZONE_CLIENT_RETRY_INTERVAL =
+      "ozone.client.retry.interval";
+  public static final String OZONE_CLIENT_RETRY_INTERVAL_DEFAULT = "200ms";
+
   public static final String DFS_CONTAINER_RATIS_ENABLED_KEY
       = ScmConfigKeys.DFS_CONTAINER_RATIS_ENABLED_KEY;
   public static final boolean DFS_CONTAINER_RATIS_ENABLED_DEFAULT
@@ -256,6 +264,9 @@ public final class OzoneConfigKeys {
       "hdds.lock.suppress.warning.interval.ms";
   public static final long
       HDDS_LOCK_SUPPRESS_WARNING_INTERVAL_MS_DEAFULT = 10000L;
+
+  public static final String OZONE_CONTAINER_COPY_WORKDIR =
+      "hdds.datanode.replication.work.dir";
 
   /**
    * There is no need to instantiate this class.

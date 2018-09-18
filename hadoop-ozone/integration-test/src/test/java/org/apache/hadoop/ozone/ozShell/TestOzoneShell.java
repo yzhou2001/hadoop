@@ -773,7 +773,7 @@ public class TestOzoneShell {
   }
 
   @Test
-  public void testInfoKey() throws Exception {
+  public void testInfoKeyDetails() throws Exception {
     LOG.info("Running testInfoKey");
     String keyName = "key" + RandomStringUtils.randomNumeric(5);
     OzoneBucket bucket = creatBucket();
@@ -797,7 +797,9 @@ public class TestOzoneShell {
     assertTrue(
         output.contains("createdOn") && output.contains("modifiedOn") && output
             .contains(OzoneConsts.OZONE_TIME_ZONE));
-
+    assertTrue(
+        output.contains("containerID") && output.contains("localID") && output
+            .contains("length") && output.contains("offset"));
     // reset stream
     out.reset();
     err.reset();
@@ -811,6 +813,41 @@ public class TestOzoneShell {
     assertEquals(1, ToolRunner.run(shell, args));
     assertTrue(err.toString().contains(
         "Lookup key failed, error:KEY_NOT_FOUND"));
+  }
+
+  @Test
+  public void testInfoDirKey() throws Exception {
+    LOG.info("Running testInfoKey for Dir Key");
+    String dirKeyName = "test/";
+    String keyNameOnly = "test";
+    OzoneBucket bucket = creatBucket();
+    String volumeName = bucket.getVolumeName();
+    String bucketName = bucket.getName();
+    String dataStr = "test-data";
+    OzoneOutputStream keyOutputStream =
+        bucket.createKey(dirKeyName, dataStr.length());
+    keyOutputStream.write(dataStr.getBytes());
+    keyOutputStream.close();
+    String[] args = new String[] {"-infoKey",
+        url + "/" + volumeName + "/" + bucketName + "/" + dirKeyName};
+    // verify the response output
+    int a = ToolRunner.run(shell, args);
+    String output = out.toString();
+    assertEquals(0, a);
+    assertTrue(output.contains(dirKeyName));
+    assertTrue(output.contains("createdOn") &&
+                output.contains("modifiedOn") &&
+                output.contains(OzoneConsts.OZONE_TIME_ZONE));
+    args = new String[] {"-infoKey",
+        url + "/" + volumeName + "/" + bucketName + "/" + keyNameOnly};
+    a = ToolRunner.run(shell, args);
+    output = out.toString();
+    assertEquals(1, a);
+    assertTrue(err.toString().contains(
+        "Lookup key failed, error:KEY_NOT_FOUND"));
+    // reset stream
+    out.reset();
+    err.reset();
   }
 
   @Test
