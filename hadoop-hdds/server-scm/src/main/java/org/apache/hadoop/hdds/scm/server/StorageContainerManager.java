@@ -176,6 +176,7 @@ public final class StorageContainerManager extends ServiceRuntimeInfoImpl
   private final LeaseManager<Long> commandWatcherLeaseManager;
 
   private final ReplicationActivityStatus replicationStatus;
+  private final SCMChillModeManager scmChillModeManager;
 
   /**
    * Creates a new StorageContainerManager. Configuration will be updated
@@ -231,7 +232,9 @@ public final class StorageContainerManager extends ServiceRuntimeInfoImpl
     ContainerReportHandler containerReportHandler =
         new ContainerReportHandler(scmContainerManager, node2ContainerMap,
             replicationStatus);
-
+    scmChillModeManager = new SCMChillModeManager(conf,
+        getScmContainerManager().getStateManager().getAllContainers(),
+        eventQueue);
     PipelineActionEventHandler pipelineActionEventHandler =
         new PipelineActionEventHandler();
 
@@ -247,12 +250,19 @@ public final class StorageContainerManager extends ServiceRuntimeInfoImpl
     eventQueue.addHandler(SCMEvents.STALE_NODE, staleNodeHandler);
     eventQueue.addHandler(SCMEvents.DEAD_NODE, deadNodeHandler);
     eventQueue.addHandler(SCMEvents.CMD_STATUS_REPORT, cmdStatusReportHandler);
-    eventQueue.addHandler(SCMEvents.START_REPLICATION, replicationStatus);
+    eventQueue.addHandler(SCMEvents.START_REPLICATION,
+        replicationStatus.getReplicationStatusListener());
+    eventQueue.addHandler(SCMEvents.CHILL_MODE_STATUS,
+        replicationStatus.getChillModeStatusListener());
     eventQueue
         .addHandler(SCMEvents.PENDING_DELETE_STATUS, pendingDeleteHandler);
     eventQueue.addHandler(SCMEvents.PIPELINE_ACTIONS,
         pipelineActionEventHandler);
     eventQueue.addHandler(SCMEvents.PIPELINE_CLOSE, pipelineCloseHandler);
+    eventQueue.addHandler(SCMEvents.NODE_REGISTRATION_CONT_REPORT,
+        scmChillModeManager);
+    eventQueue.addHandler(SCMEvents.CHILL_MODE_STATUS,
+        (BlockManagerImpl) scmBlockManager);
 
     long watcherTimeout =
         conf.getTimeDuration(ScmConfigKeys.HDDS_SCM_WATCHER_TIMEOUT,
@@ -356,8 +366,6 @@ public final class StorageContainerManager extends ServiceRuntimeInfoImpl
         hParser.printGenericCommandUsage(System.err);
         System.exit(1);
       }
-      StringUtils.startupShutdownMessage(StorageContainerManager.class, argv,
-          LOG);
       StorageContainerManager scm = createSCM(hParser.getRemainingArgs(), conf);
       if (scm != null) {
         scm.start();
@@ -373,9 +381,10 @@ public final class StorageContainerManager extends ServiceRuntimeInfoImpl
     out.println(USAGE + "\n");
   }
 
-  public static StorageContainerManager createSCM(String[] argv,
+  public static StorageContainerManager createSCM(String[] args,
       OzoneConfiguration conf)
       throws IOException {
+    String[] argv = (args == null) ? new String[0] : args;
     if (!HddsUtils.isHddsEnabled(conf)) {
       System.err.println(
           "SCM cannot be started in secure mode or when " + OZONE_ENABLED + "" +
@@ -390,9 +399,13 @@ public final class StorageContainerManager extends ServiceRuntimeInfoImpl
     }
     switch (startOpt) {
     case INIT:
+      StringUtils.startupShutdownMessage(StorageContainerManager.class, argv,
+          LOG);
       terminate(scmInit(conf) ? 0 : 1);
       return null;
     case GENCLUSTERID:
+      StringUtils.startupShutdownMessage(StorageContainerManager.class, argv,
+          LOG);
       System.out.println("Generating new cluster id:");
       System.out.println(StorageInfo.newClusterID());
       terminate(0);
@@ -402,6 +415,8 @@ public final class StorageContainerManager extends ServiceRuntimeInfoImpl
       terminate(0);
       return null;
     default:
+      StringUtils.startupShutdownMessage(StorageContainerManager.class, argv,
+          LOG);
       return new StorageContainerManager(conf);
     }
   }
@@ -609,6 +624,8 @@ public final class StorageContainerManager extends ServiceRuntimeInfoImpl
             "StorageContainerLocationProtocol RPC server",
             getClientRpcAddress()));
     DefaultMetricsSystem.initialize("StorageContainerManager");
+
+    commandWatcherLeaseManager.start();
     getClientProtocolServer().start();
 
     LOG.info(buildRpcServerStartMessage("ScmBlockLocationProtocol RPC " +
@@ -619,9 +636,9 @@ public final class StorageContainerManager extends ServiceRuntimeInfoImpl
         "server", getDatanodeProtocolServer().getDatanodeRpcAddress()));
     getDatanodeProtocolServer().start();
 
-    replicationStatus.start();
     httpServer.start();
     scmBlockManager.start();
+    replicationStatus.start();
     replicationManager.start();
     setStartTime();
   }
@@ -807,6 +824,15 @@ public final class StorageContainerManager extends ServiceRuntimeInfoImpl
     }
 
     return id2StatMap;
+  }
+
+  public boolean isInChillMode() {
+    return scmChillModeManager.getInChillMode();
+  }
+
+  @VisibleForTesting
+  public double getCurrentContainerThreshold() {
+    return scmChillModeManager.getCurrentContainerThreshold();
   }
 
   /**

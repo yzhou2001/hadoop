@@ -20,13 +20,19 @@ http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <parent>
     <groupId>org.apache.hadoop</groupId>
     <artifactId>hadoop-ozone</artifactId>
-    <version>0.2.1-SNAPSHOT</version>
+    <version>0.3.0-SNAPSHOT</version>
   </parent>
   <artifactId>hadoop-ozone-acceptance-test</artifactId>
   <version>3.2.0-SNAPSHOT</version>
   <description>Apache Hadoop Ozone Acceptance Tests</description>
   <name>Apache Hadoop Ozone Acceptance Tests</name>
   <packaging>pom</packaging>
+
+  <properties>
+    <hadoop.component>ozone</hadoop.component>
+    <is.hadoop.component>true</is.hadoop.component>
+  </properties>
+
   <profiles>
     <profile>
       <id>ozone-acceptance-test</id>

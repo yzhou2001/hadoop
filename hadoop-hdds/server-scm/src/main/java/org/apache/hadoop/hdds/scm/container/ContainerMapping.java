@@ -33,6 +33,7 @@ import org.apache.hadoop.hdds.scm.container.common.helpers.ContainerInfo;
 import org.apache.hadoop.hdds.scm.container.common.helpers.PipelineID;
 import org.apache.hadoop.hdds.scm.events.SCMEvents;
 import org.apache.hadoop.hdds.scm.exceptions.SCMException;
+import org.apache.hadoop.hdds.scm.exceptions.SCMException.ResultCodes;
 import org.apache.hadoop.hdds.scm.node.NodeManager;
 import org.apache.hadoop.hdds.scm.pipelines.PipelineSelector;
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos;
@@ -129,12 +130,13 @@ public class ContainerMapping implements Mapping {
 
     size = (long)conf.getStorageSize(OZONE_SCM_CONTAINER_SIZE,
         OZONE_SCM_CONTAINER_SIZE_DEFAULT, StorageUnit.BYTES);
-    this.containerStateManager =
-        new ContainerStateManager(conf, this);
-    LOG.trace("Container State Manager created.");
 
     this.pipelineSelector = new PipelineSelector(nodeManager,
-        containerStateManager, conf, eventPublisher);
+            conf, eventPublisher, cacheSizeMB);
+
+    this.containerStateManager =
+        new ContainerStateManager(conf, this, pipelineSelector);
+    LOG.trace("Container State Manager created.");
 
     this.eventPublisher = eventPublisher;
 
@@ -201,15 +203,14 @@ public class ContainerMapping implements Mapping {
       if (contInfo.isContainerOpen()) {
         // If pipeline with given pipeline Id already exist return it
         pipeline = pipelineSelector.getPipeline(contInfo.getPipelineID());
-        if (pipeline == null) {
-          pipeline = pipelineSelector
-              .getReplicationPipeline(contInfo.getReplicationType(),
-                  contInfo.getReplicationFactor());
-        }
       } else {
         // For close containers create pipeline from datanodes with replicas
         Set<DatanodeDetails> dnWithReplicas = containerStateManager
             .getContainerReplicas(contInfo.containerID());
+        if (dnWithReplicas.size() == 0) {
+          throw new SCMException("Can't create a pipeline for container with "
+              + "no replica.", ResultCodes.NO_REPLICA_FOUND);
+        }
         pipeline =
             new Pipeline(dnWithReplicas.iterator().next().getUuidString(),
                 contInfo.getState(), ReplicationType.STAND_ALONE,
@@ -387,9 +388,8 @@ public class ContainerMapping implements Mapping {
       ContainerInfo updatedContainer = containerStateManager
           .updateContainerState(containerInfo, event);
       if (!updatedContainer.isContainerOpen()) {
-        Pipeline pipeline = pipelineSelector
-            .getPipeline(containerInfo.getPipelineID());
-        pipelineSelector.closePipelineIfNoOpenContainers(pipeline);
+        pipelineSelector.removeContainerFromPipeline(
+                containerInfo.getPipelineID(), containerID);
       }
       containerStore.put(dbKey, updatedContainer.getProtobuf().toByteArray());
       return updatedContainer.getState();
@@ -469,11 +469,6 @@ public class ContainerMapping implements Mapping {
     }
     Pipeline pipeline = pipelineSelector
         .getPipeline(containerInfo.getPipelineID());
-    if (pipeline == null) {
-      pipeline = pipelineSelector
-          .getReplicationPipeline(containerInfo.getReplicationType(),
-              containerInfo.getReplicationFactor());
-    }
     return new ContainerWithPipeline(containerInfo, pipeline);
   }
 

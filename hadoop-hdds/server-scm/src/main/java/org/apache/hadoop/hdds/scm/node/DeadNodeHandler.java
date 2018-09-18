@@ -23,6 +23,8 @@ import java.util.Set;
 import org.apache.hadoop.hdds.protocol.DatanodeDetails;
 import org.apache.hadoop.hdds.scm.container.ContainerID;
 import org.apache.hadoop.hdds.scm.container.ContainerStateManager;
+import org.apache.hadoop.hdds.scm.container.replication.ReplicationRequest;
+import org.apache.hadoop.hdds.scm.events.SCMEvents;
 import org.apache.hadoop.hdds.scm.exceptions.SCMException;
 import org.apache.hadoop.hdds.scm.node.states.Node2ContainerMap;
 import org.apache.hadoop.hdds.server.events.EventHandler;
@@ -55,6 +57,11 @@ public class DeadNodeHandler implements EventHandler<DatanodeDetails> {
       EventPublisher publisher) {
     Set<ContainerID> containers =
         node2ContainerMap.getContainers(datanodeDetails.getUuid());
+    if (containers == null) {
+      LOG.info("There's no containers in dead datanode {}, no replica will be"
+          + " removed from the in-memory state.", datanodeDetails.getUuid());
+      return;
+    }
     LOG.info(
         "Datanode {}  is dead. Removing replications from the in-memory state.",
         datanodeDetails.getUuid());
@@ -62,6 +69,16 @@ public class DeadNodeHandler implements EventHandler<DatanodeDetails> {
       try {
         containerStateManager.removeContainerReplica(container,
             datanodeDetails);
+
+        if (!containerStateManager.isOpen(container)) {
+          ReplicationRequest replicationRequest =
+              containerStateManager.checkReplicationState(container);
+
+          if (replicationRequest != null) {
+            publisher.fireEvent(SCMEvents.REPLICATE_CONTAINER,
+                replicationRequest);
+          }
+        }
       } catch (SCMException e) {
         LOG.error("Can't remove container from containerStateMap {}", container
             .getId(), e);

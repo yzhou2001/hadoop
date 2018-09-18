@@ -164,6 +164,14 @@
     <description>The timeout duration for ratis server request.</description>
   </property>
   <property>
+    <name>dfs.ratis.leader.election.minimum.timeout.duration</name>
+    <value>1s</value>
+    <tag>OZONE, RATIS, MANAGEMENT</tag>
+    <description>The minimum timeout duration for ratis leader election.
+        Default is 1s.
+    </description>
+  </property>
+  <property>
     <name>dfs.ratis.server.failure.duration</name>
     <value>120s</value>
     <tag>OZONE, RATIS, MANAGEMENT</tag>
@@ -1113,6 +1121,23 @@
   </property>
 
   <property>
+    <name>hdds.scm.chillmode.threshold.pct</name>
+    <value>0.99</value>
+    <tag>HDDS,SCM,OPERATION</tag>
+    <description> % of containers which should have at least one
+      reported replica before SCM comes out of chill mode.
+    </description>
+  </property>
+
+  <property>
+    <name>hdds.scm.chillmode.enabled</name>
+    <value>true</value>
+    <tag>HDDS,SCM,OPERATION</tag>
+    <description>Boolean value to enable or disable SCM chill mode.
+    </description>
+  </property>
+
+  <property>
     <name>hdds.container.action.max.limit</name>
     <value>20</value>
     <tag>DATANODE</tag>
@@ -1159,4 +1184,15 @@
       (in compressed format), but doesn't require fast io access such as SSD.
     </description>
   </property>
+
+  <property>
+    <name>hdds.lock.max.concurrency</name>
+    <value>100</value>
+    <tag>HDDS</tag>
+    <description>Locks in HDDS/Ozone uses object pool to maintain active locks
+      in the system, this property defines the max limit for the locks that
+      will be maintained in the pool.
+    </description>
+  </property>
+
 </configuration>

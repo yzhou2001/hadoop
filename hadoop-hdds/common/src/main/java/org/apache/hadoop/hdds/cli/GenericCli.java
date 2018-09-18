@@ -23,16 +23,16 @@ import java.util.concurrent.Callable;
 
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
 
+import com.google.common.annotations.VisibleForTesting;
 import picocli.CommandLine;
 import picocli.CommandLine.ExecutionException;
 import picocli.CommandLine.Option;
-import picocli.CommandLine.ParameterException;
 import picocli.CommandLine.RunLast;
 
 /**
  * This is a generic parent class for all the ozone related cli tools.
  */
-public class GenericCli implements Callable<Void> {
+public class GenericCli implements Callable<Void>, GenericParentCommand {
 
   @Option(names = {"--verbose"},
       description = "More verbose output. Show the stack trace of the errors.")
@@ -49,11 +49,16 @@ public class GenericCli implements Callable<Void> {
 
   public void run(String[] argv) {
     try {
-      cmd.parseWithHandler(new RunLast(), argv);
+      execute(argv);
     } catch (ExecutionException ex) {
       printError(ex.getCause());
       System.exit(-1);
     }
+  }
+
+  @VisibleForTesting
+  public void execute(String[] argv) {
+    cmd.parseWithHandler(new RunLast(), argv);
   }
 
   private void printError(Throwable error) {
@@ -62,11 +67,14 @@ public class GenericCli implements Callable<Void> {
     } else {
       System.err.println(error.getMessage().split("\n")[0]);
     }
+    if(error instanceof MissingSubcommandException){
+      System.err.println(((MissingSubcommandException) error).getUsage());
+    }
   }
 
   @Override
   public Void call() throws Exception {
-    throw new ParameterException(cmd, "Please choose a subcommand");
+    throw new MissingSubcommandException(cmd.getUsageMessage());
   }
 
   public OzoneConfiguration createOzoneConfiguration() {
@@ -78,5 +86,15 @@ public class GenericCli implements Callable<Void> {
       }
     }
     return ozoneConf;
+  }
+
+  @VisibleForTesting
+  public picocli.CommandLine getCmd() {
+    return cmd;
+  }
+
+  @Override
+  public boolean isVerbose() {
+    return verbose;
   }
 }
